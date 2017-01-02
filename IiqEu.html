@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<!-- saved from url=(0042)https://s.codepen.io/Merri/fullpage/IiqEu? -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <link rel="shortcut icon" type="image/x-icon" href="https://production-assets.codepen.io/assets/favicon/favicon-8ea04875e70c4b0bb41da869e81236e54394d63638a1ef12fa558a4a835f1164.ico">
+  <link rel="mask-icon" type="" href="https://production-assets.codepen.io/assets/favicon/logo-pin-f2d2b6d2c61838f7e76325261b7195c27224080bc099486ddd6dccb469b8e8e6.svg" color="#111">
+  <title>CodePen - Lazy loading images</title>
+  
+  
+  <link rel="stylesheet" href="./normalize.min.css">
+
+  
+      <style>
+      /* just to add distance between images */
+img {
+  border: 1px dotted #ccc;
+  display: block;
+  margin: 20em 10em;
+}
+
+img.fails {
+  border-color: red;
+  margin-top: 0;
+}
+
+/* a little bit of style */
+html {
+  padding: 2em;
+}
+
+dl {
+  margin: 1em;
+}
+
+dt {
+  display: list-item;
+  font-weight: bold;
+}
+
+dd {
+  font-size: smaller;
+  margin: 1em;
+}
+    </style>
+
+  <script>
+  window.console = window.console || function(t) {};
+</script>
+
+  
+  
+  <script>
+  if (document.location.search.match(/type=embed/gi)) {
+    window.parent.postMessage("resize", "*");
+  }
+</script>
+
+</head>
+
+<body translate="no">
+
+  <h1>Lazy loading images</h1>
+<p>Main purpose of lazy loading: save <strong>your</strong> bandwidth. Side effect: user's initial page load time might reduce. However user may also see images flashing as they are loaded.</p>
+<h2>Challenges:</h2>
+<dl>
+  <dt>Should work JavaScript disabled</dt>
+  <dd>Just without lazy loading of course. Also means Google and other search engines can access the image.</dd>
+  <dt>Should have short syntax</dt>
+  <dd>Many solutions I've seen seem to easily become quite verbose with their HMTL. Especially if you want to support the above.</dd>
+  <dt>Should work nicely in mobile</dt>
+  <dd>I don't want my iPad to load them with extra 2 seconds delay when on 4G!</dd>
+  <dt>Don't be slow!</dt>
+  <dd>Some solutions seem to be very slow on initial page load: in my tests with mere 50 images jQuery JAIL plugin spent 150 ms setting stuff up!<br><small>Yes, that is a lot. It would double the page JS init time on my production site.</small></dd>
+  <dt>Should account for both vertical and horizontal scrolling.</dt>
+  <dd>Some solutions only account for vertical scrolling.</dd>
+  <dt>Should work on Internet Explorer 8+</dt>
+  <dd>The smaller you make it and the more feature requirements you add the more likely you are going to run into compability barriers.</dd>
+</dl>
+
+<img alt="Test" title="FYI: This does not work on IE8 and below" src="./Critical-Out-of-Band-Patch-for-Internet-Explorer-8-2.jpg" height="417" width="417">
+
+<!--[if IE 9]><!--><img alt="Test" src="./183x360" height="360" width="183"><!--<![endif]-->
+
+<!--[if IE 9]><!--><img alt="Test" src="./267x300" height="300" width="267"><!--<![endif]-->
+
+<!--[if IE 9]><!--><img alt="Test" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" height="156" width="193"><!--<![endif]-->
+
+Image that fails to load:
+<!--[if IE 9]><!--><img class="fails" alt="Test" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" height="300" width="300"><!--<![endif]-->
+
+<h2>The Requirements</h2>
+<ul>
+  <li>Add before image: <code>&lt;!--[if IE 9]&gt;&lt;!--&gt;&lt;noscript data-lazy-img&gt;&lt;!--&lt;![endif]--&gt;</code></li>
+  <li>Add after image: <code>&lt;!--[if IE 9]&gt;&lt;!--&gt;&lt;/noscript&gt;&lt;!--&lt;![endif]--&gt;</code></li>
+  <li>Image must have width and height attributes set (as always with lazy loading).</li>
+  <li>And that is all that is into it in HTML. Rest is JavaScript.</li>
+</ul>
+
+<h2>The Good</h2>
+<p>Shortest syntax I know of that also supports JS disabled.</p>
+<p>Answers all the challenges in a positive manner.</p>
+
+<h2>The Bad</h2>
+<p>There can be a small delay after page is first rendered and JavaScript execution which means page layout might be re-calculated when noscript elements are replaced with images.</p>
+<p>Also doesn't support responsive loading if you fancy that.</p>
+
+<h2>The Weird &amp; Ugly</h2>
+<p>Internet Explorer Conditional Comments: IE 8 and below don't allow accessing contents of noscript elements.</p>
+<p>With some simple conditional comments we can hide noscript element tags from those IEs so they work as if JS is disabled.</p>
+<p>But then we get no lazy loading.</p>
+    <script src="./stopExecutionOnTimeout-58d22c749295bca52f487966e382a94a495ac103faca9206cbd160bdf8aedf2a.js.download"></script>
+
+  <script src="./jquery.min.js.download"></script>
+
+    <script>
+    $(function () {
+    var $window = $(window), images = [], imagesToBeLoaded = 0, i, src;
+    function throttle(func, wait) {
+        var timeout;
+        return function () {
+            var context = this, args = arguments;
+            if (!timeout) {
+                timeout = setTimeout(function () {
+                    timeout = null;
+                }, wait);
+                func.apply(context, args);
+            }
+        };
+    }
+    function inViewport($el) {
+        var top = $window.scrollTop(), left = $window.scrollLeft(), bottom = top + $window.height(), right = left + $window.width(), offset = $el.offset(), thisTop = offset.top, thisLeft = offset.left, thisBottom = thisTop + $el.outerHeight(), thisRight = thisLeft + $el.outerWidth();
+        return !(bottom < thisTop || top > thisBottom || right < thisLeft || left > thisRight);
+    }
+    var lazyScroll = throttle(function () {
+        if (imagesToBeLoaded > 0) {
+            for (i = 0; i < images.length; i++) {
+                if (window.CP.shouldStopExecution(1)) {
+                    break;
+                }
+                src = images[i].data('src');
+                if (src && inViewport(images[i])) {
+                    (function (img, src, i, $img) {
+                        img.onload = function () {
+                            console.log('Loaded ' + i + ' ' + img.src);
+                            $img.attr('src', img.src);
+                            imagesToBeLoaded--;
+                        };
+                        img.onerror = function () {
+                            console.log('Could not load ' + i + ' ' + img.src);
+                            imagesToBeLoaded--;
+                        };
+                        $img.removeData('src');
+                        img.src = src;
+                    }(new Image(), src, i, images[i]));
+                }
+            }
+            window.CP.exitedLoop(1);
+        } else {
+            images = void 0;
+            $window.off('resize scroll touchmove', lazyScroll);
+            console.log('Unloaded event listener');
+        }
+    }, 50);
+    $('noscript[data-lazy-img]').each(function () {
+        var $this = $(this), $img = $(this.innerText || $this.text()).filter('img');
+        if ($img.length === 1) {
+            $img.data('src', $img.attr('src'));
+            $img.attr('src', 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+            images.push($img);
+            $this.replaceWith($img);
+            imagesToBeLoaded++;
+        }
+    });
+    if (imagesToBeLoaded) {
+        lazyScroll();
+        $window.on('resize scroll touchmove', lazyScroll);
+    }
+});
+  //# sourceURL=pen.js
+  </script>
+
+  
+  
+
+
+
+ </body></html>
